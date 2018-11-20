@@ -1,8 +1,13 @@
 ﻿using System;
 using System.AddIn;
+using System.Collections.Generic;
 using System.Drawing;
+using System.ServiceModel;
+using System.ServiceModel.Channels;
 using System.Windows.Forms;
 using RightNow.AddIns.AddInViews;
+using RightNow.AddIns.Common;
+using SearchCustomerWorkspace.SOAPICCS;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -20,83 +25,57 @@ namespace SearchCustomerWorkspace
     [AddIn("Buscar Información de Cliente", Version = "1.0.0.0")]
     public class WorkspaceAddInFactory : IWorkspaceComponentFactory2
     {
-        #region IWorkspaceComponentFactory2 Members
+
         IGlobalContext globalContext { get; set; }
-        /// <summary>
-        /// Method which is invoked by the AddIn framework when the control is created.
-        /// </summary>
-        /// <param name="inDesignMode">Flag which indicates if the control is being drawn on the Workspace Designer. (Use this flag to determine if code should perform any logic on the workspace record)</param>
-        /// <param name="RecordContext">The current workspace record context.</param>
-        /// <returns>The control which implements the IWorkspaceComponent2 interface.</returns>
+
         public IWorkspaceComponent2 CreateControl(bool inDesignMode, IRecordContext RecordContext)
         {
             return new Component(inDesignMode, RecordContext, globalContext);
         }
 
-        #endregion
 
-        #region IFactoryBase Members
-
-        /// <summary>
-        /// The 16x16 pixel icon to represent the Add-In in the Ribbon of the Workspace Designer.
-        /// </summary>
         public Image Image16
         {
             get { return Properties.Resources.AddIn16; }
         }
 
-        /// <summary>
-        /// The text to represent the Add-In in the Ribbon of the Workspace Designer.
-        /// </summary>
+
         public string Text
         {
             get { return "Customer"; }
         }
 
-        /// <summary>
-        /// The tooltip displayed when hovering over the Add-In in the Ribbon of the Workspace Designer.
-        /// </summary>
         public string Tooltip
         {
             get { return "Buscar Customer en SR"; }
         }
 
-        #endregion
-
-        #region IAddInBase Members
-
-        /// <summary>
-        /// Method which is invoked from the Add-In framework and is used to programmatically control whether to load the Add-In.
-        /// </summary>
-        /// <param name="GlobalContext">The Global Context for the Add-In framework.</param>
-        /// <returns>If true the Add-In to be loaded, if false the Add-In will not be loaded.</returns>
         public bool Initialize(IGlobalContext GlobalContext)
         {
             globalContext = GlobalContext;
             return true;
         }
 
-        #endregion
+
     }
 
     public class Component : IWorkspaceComponent2
     {
         private SearchCustomer control;
+        private RightNowSyncPortClient clientRN { get; set; }
+        private IRecordContext recordContext { get; set; }
+        private IGlobalContext globalContext { get; set; }
+        private IIncident Incident { get; set; }
+        private int IncidentID { get; set; }
 
-        /// <summary>
-        /// create the component
-        /// </summary>
-        /// <param name="inDesignMode">store the inDesignMode flag</param>
         public Component(bool inDesignMode, IRecordContext recordContext, IGlobalContext globalContext)
         {
-            //create the control and pass all of the information up to it
+            this.recordContext = recordContext;
+            this.globalContext = globalContext;
             control = new SearchCustomer(inDesignMode, recordContext, globalContext);
-
-            //if we're not on a workspace designer listen for the data to finish loading and
-            //then load the control information
             if (!inDesignMode)
             {
-                //listen for the workspace to finish loading
+
                 recordContext.DataLoaded += (o, e) =>
                 {
                     control.LoadData();
@@ -112,7 +91,44 @@ namespace SearchCustomerWorkspace
 
         public void RuleActionInvoked(string actionName)
         {
-            throw new NotImplementedException();
+            if (actionName == "GetAircraftType")
+            {
+                if (Init())
+                {
+                    Incident = (IIncident)recordContext.GetWorkspaceRecord(WorkspaceRecordType.Incident);
+                    IncidentID = Incident.ID;
+                    IList<ICfVal> incCustomFieldList = Incident.CustomField;
+                    if (incCustomFieldList != null)
+                    {
+                        foreach (ICfVal inccampos in incCustomFieldList)
+                        {
+                            if (inccampos.CfId == 96)
+                            {
+                                inccampos.ValStr = GetAircraftType();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        public string GetAircraftType()
+        {
+            string air = "";
+            ClientInfoHeader clientInfoHeader = new ClientInfoHeader();
+            APIAccessRequestHeader aPIAccessRequest = new APIAccessRequestHeader();
+            clientInfoHeader.AppID = "Query Example";
+            String queryString = "SELECT CustomFields.CO.Aircraft.AircraftType1.ICAODESIGNATOR FROM  Incident WHERE ID =  " + IncidentID;
+            clientRN.QueryCSV(clientInfoHeader, aPIAccessRequest, queryString, 1, "|", false, false, out CSVTableSet queryCSV, out byte[] FileData);
+            foreach (CSVTable table in queryCSV.CSVTables)
+            {
+                String[] rowData = table.Rows;
+                foreach (String data in rowData)
+                {
+                    air = data;
+                }
+            }
+            return air;
+
         }
 
         public string RuleConditionInvoked(string conditionName)
@@ -125,6 +141,44 @@ namespace SearchCustomerWorkspace
             return control;
 
         }
+
+        public bool Init()
+        {
+            try
+            {
+                bool result = false;
+                EndpointAddress endPointAddr = new EndpointAddress(globalContext.GetInterfaceServiceUrl(ConnectServiceType.Soap));
+                // Minimum required
+                BasicHttpBinding binding = new BasicHttpBinding(BasicHttpSecurityMode.TransportWithMessageCredential);
+                binding.Security.Message.ClientCredentialType = BasicHttpMessageCredentialType.UserName;
+                binding.ReceiveTimeout = new TimeSpan(0, 10, 0);
+                binding.MaxReceivedMessageSize = 1048576; //1MB
+                binding.SendTimeout = new TimeSpan(0, 10, 0);
+                // Create client proxy class
+                clientRN = new RightNowSyncPortClient(binding, endPointAddr);
+                // Ask the client to not send the timestamp
+                BindingElementCollection elements = clientRN.Endpoint.Binding.CreateBindingElements();
+                elements.Find<SecurityBindingElement>().IncludeTimestamp = false;
+                clientRN.Endpoint.Binding = new CustomBinding(elements);
+                // Ask the Add-In framework the handle the session logic
+                globalContext.PrepareConnectSession(clientRN.ChannelFactory);
+                if (clientRN != null)
+                {
+                    result = true;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return false;
+            }
+        }
+
+
+
+
     }
 
 }

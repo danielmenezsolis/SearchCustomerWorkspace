@@ -359,6 +359,7 @@ namespace SearchCustomerWorkspace
                     }
                     dataGridResult.DataSource = resultadolista;
                     dataGridResult.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+                    dataGridResult.Focus();
                 }
 
                 if (resultadolista.Count == 0)
