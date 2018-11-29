@@ -14,42 +14,6 @@ using SearchCustomerWorkspace.SOAPICCS;
 
 namespace SearchCustomerWorkspace
 {
-    [AddIn("Buscar Información de Cliente", Version = "1.0.0.0")]
-    public class WorkspaceAddInFactory : IWorkspaceComponentFactory2
-    {
-
-        IGlobalContext globalContext { get; set; }
-
-        public IWorkspaceComponent2 CreateControl(bool inDesignMode, IRecordContext RecordContext)
-        {
-            return new Component(inDesignMode, RecordContext, globalContext);
-        }
-
-
-        public Image Image16
-        {
-            get { return Properties.Resources.AddIn16; }
-        }
-
-
-        public string Text
-        {
-            get { return "Customer"; }
-        }
-
-        public string Tooltip
-        {
-            get { return "Buscar Customer en SR"; }
-        }
-
-        public bool Initialize(IGlobalContext GlobalContext)
-        {
-            globalContext = GlobalContext;
-            return true;
-        }
-
-
-    }
 
     public class Component : IWorkspaceComponent2
     {
@@ -62,17 +26,25 @@ namespace SearchCustomerWorkspace
 
         public Component(bool inDesignMode, IRecordContext recordContext, IGlobalContext globalContext)
         {
-            this.recordContext = recordContext;
-            this.globalContext = globalContext;
-            recordContext.Saved += new EventHandler(RecordContext_Saving);
-            control = new SearchCustomer(inDesignMode, recordContext, globalContext);
-            if (!inDesignMode)
+            try
             {
-
-                recordContext.DataLoaded += (o, e) =>
+                this.recordContext = recordContext;
+                this.globalContext = globalContext;
+                
+                control = new SearchCustomer(inDesignMode, recordContext, globalContext);
+                if (!inDesignMode)
                 {
-                    control.LoadData();
-                };
+                    recordContext.Saved += new EventHandler(RecordContext_Saving);
+                    recordContext.DataLoaded += (o, e) =>
+                        {
+                            control.LoadData();
+                        };
+                }
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.StackTrace);
             }
         }
         private void RecordContext_Saving(object sender, EventArgs e)
@@ -275,10 +247,43 @@ namespace SearchCustomerWorkspace
                 return false;
             }
         }
-
-
-
-
     }
+
+
+    [AddIn("Buscar Información de Cliente", Version = "1.0.0.0")]
+    public class WorkspaceAddInFactory : IWorkspaceComponentFactory2
+    {
+
+        IGlobalContext globalContext { get; set; }
+
+        public IWorkspaceComponent2 CreateControl(bool inDesignMode, IRecordContext RecordContext)
+        {
+            return new Component(inDesignMode, RecordContext, globalContext);
+        }
+
+
+        public Image Image16
+        {
+            get { return Properties.Resources.AddIn16; }
+        }
+
+
+        public string Text
+        {
+            get { return "Search SR Customer "; }
+        }
+
+        public string Tooltip
+        {
+            get { return "Buscar Customer en SR"; }
+        }
+
+        public bool Initialize(IGlobalContext GlobalContext)
+        {
+            this.globalContext = GlobalContext;
+            return true;
+        }
+    }
+
 
 }

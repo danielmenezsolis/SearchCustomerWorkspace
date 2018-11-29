@@ -31,9 +31,16 @@ namespace SearchCustomerWorkspace
 
         public SearchCustomer()
         {
-            InitializeComponent();
-            txtCustomer.KeyDown += txtCustomer_KeyDown;
-            txtRFC.KeyDown += txtCustomer_KeyDown;
+            try
+            {
+                InitializeComponent();
+                txtCustomer.KeyDown += txtCustomer_KeyDown;
+                txtRFC.KeyDown += txtCustomer_KeyDown;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.StackTrace);
+            }
         }
         private void txtCustomer_KeyDown(object sender, KeyEventArgs e)
         {
@@ -44,9 +51,16 @@ namespace SearchCustomerWorkspace
         }
         public SearchCustomer(bool inDesignMode, IRecordContext recordContext, IGlobalContext globalContext) : this()
         {
-            this.inDesignMode = inDesignMode;
-            this.recordContext = recordContext;
-            this.globalContext = globalContext;
+            try
+            {
+                this.inDesignMode = inDesignMode;
+                this.recordContext = recordContext;
+                this.globalContext = globalContext;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.StackTrace);
+            }
         }
         internal void LoadData()
         {
@@ -94,7 +108,7 @@ namespace SearchCustomerWorkspace
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.InnerException.ToString());
+                MessageBox.Show(ex.StackTrace);
             }
         }
         private void BtnSearch_Click(object sender, EventArgs e)
