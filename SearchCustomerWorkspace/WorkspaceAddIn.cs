@@ -1,25 +1,17 @@
 ﻿using System;
 using System.AddIn;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.Windows.Forms;
+using RestSharp;
 using RightNow.AddIns.AddInViews;
 using RightNow.AddIns.Common;
 using SearchCustomerWorkspace.SOAPICCS;
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// File: WorkspaceAddIn.cs
-//
-// Comments:
-//
-// Notes: 
-//
-// Pre-Conditions: 
-//
-////////////////////////////////////////////////////////////////////////////////
+
 namespace SearchCustomerWorkspace
 {
     [AddIn("Buscar Información de Cliente", Version = "1.0.0.0")]
@@ -72,6 +64,7 @@ namespace SearchCustomerWorkspace
         {
             this.recordContext = recordContext;
             this.globalContext = globalContext;
+            recordContext.Saved += new EventHandler(RecordContext_Saving);
             control = new SearchCustomer(inDesignMode, recordContext, globalContext);
             if (!inDesignMode)
             {
@@ -81,6 +74,93 @@ namespace SearchCustomerWorkspace
                     control.LoadData();
                 };
             }
+        }
+        private void RecordContext_Saving(object sender, EventArgs e)
+        {
+            try
+            {
+                if (Init())
+                {
+                    Incident = (IIncident)recordContext.GetWorkspaceRecord(WorkspaceRecordType.Incident);
+                    IncidentID = Incident.ID;
+                    UpdpatePayables();
+                    recordContext.RefreshWorkspace();
+                }
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("RecordContext_Saving" + ex.Message + " Det :" + ex.StackTrace);
+
+            }
+        }
+
+        private void UpdpatePayables()
+        {
+            try
+            {
+                ClientInfoHeader clientInfoHeader = new ClientInfoHeader();
+                APIAccessRequestHeader aPIAccessRequest = new APIAccessRequestHeader();
+                clientInfoHeader.AppID = "Query Example";
+                String queryString = "SELECT Sum(TicketAmount),Services FROM CO.Payables WHERE Services.Incident =" + IncidentID + " GROUP BY Services";
+                globalContext.LogMessage(queryString);
+                clientRN.QueryCSV(clientInfoHeader, aPIAccessRequest, queryString, 10000, "|", false, false, out CSVTableSet queryCSV, out byte[] FileData);
+                foreach (CSVTable table in queryCSV.CSVTables)
+                {
+                    String[] rowData = table.Rows;
+                    foreach (String data in rowData)
+                    {
+                        Char delimiter = '|';
+                        string[] substrings = data.Split(delimiter);
+                        double amount = Convert.ToDouble(substrings[0]);
+                        int service = Convert.ToInt32(substrings[1]);
+                        UpdatePaxPrice(service, amount);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("UpdpatePayables" + ex.Message + " Det :" + ex.StackTrace);
+            }
+        }
+        public void UpdatePaxPrice(int id, double costo)
+        {
+            try
+            {
+                var client = new RestClient("https://iccsmx.custhelp.com/");
+                var request = new RestRequest("/services/rest/connect/v1.4/CO.Services/" + id + "", Method.POST)
+                {
+                    RequestFormat = DataFormat.Json
+                };
+                var body = "{";
+                // Información de precios costos
+                body +=
+                    "\"Costo\":\"" + costo + "\"";
+
+                body += "}";
+                globalContext.LogMessage(body);
+                request.AddParameter("application/json", body, ParameterType.RequestBody);
+                // easily add HTTP Headers
+                request.AddHeader("Authorization", "Basic ZW9saXZhczpTaW5lcmd5KjIwMTg=");
+                request.AddHeader("X-HTTP-Method-Override", "PATCH");
+                request.AddHeader("OSvC-CREST-Application-Context", "Update Service {id}");
+                // execute the request
+                IRestResponse response = client.Execute(request);
+                var content = response.Content; // raw content as string
+                if (content == "")
+                {
+
+                }
+                else
+                {
+                    MessageBox.Show(response.Content);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("UpdatePaxPrice:" + ex.Message + " Det: " + ex.StackTrace);
+            }
+
         }
 
         public bool ReadOnly
@@ -95,39 +175,59 @@ namespace SearchCustomerWorkspace
             {
                 if (Init())
                 {
+                    int Aircraft = 0;
                     Incident = (IIncident)recordContext.GetWorkspaceRecord(WorkspaceRecordType.Incident);
                     IncidentID = Incident.ID;
+
+                    IList<ICustomAttribute> cfVals = Incident.CustomAttributes;
+                    foreach (ICustomAttribute custom in cfVals)
+                    {
+                        if (custom.GenericField.Name == "CO$Aircraft")
+                        {
+                            Aircraft = Convert.ToInt32(custom.GenericField.DataValue.Value);
+                        }
+                    }
+
                     IList<ICfVal> incCustomFieldList = Incident.CustomField;
                     if (incCustomFieldList != null)
                     {
+                        string[] values = GetAircraftType(Aircraft);
                         foreach (ICfVal inccampos in incCustomFieldList)
                         {
+
                             if (inccampos.CfId == 96)
                             {
-                                inccampos.ValStr = GetAircraftType();
+                                inccampos.ValStr = values[0];
+                            }
+
+                            if (inccampos.CfId == 97)
+                            {
+                                inccampos.ValStr = values[1];
                             }
                         }
                     }
                 }
             }
         }
-        public string GetAircraftType()
+        public string[] GetAircraftType(int aircraft)
         {
-            string air = "";
+            string[] substring = new string[3];
             ClientInfoHeader clientInfoHeader = new ClientInfoHeader();
             APIAccessRequestHeader aPIAccessRequest = new APIAccessRequestHeader();
             clientInfoHeader.AppID = "Query Example";
-            String queryString = "SELECT CustomFields.CO.Aircraft.AircraftType1.ICAODESIGNATOR FROM  Incident WHERE ID =  " + IncidentID;
+            String queryString = "SELECT AircraftType1.LookupName,Organization.LookupName FROM CO.Aircraft  WHERE ID = " + aircraft;
+            globalContext.LogMessage("QueryGetAircraftType: " + queryString);
             clientRN.QueryCSV(clientInfoHeader, aPIAccessRequest, queryString, 1, "|", false, false, out CSVTableSet queryCSV, out byte[] FileData);
             foreach (CSVTable table in queryCSV.CSVTables)
             {
                 String[] rowData = table.Rows;
                 foreach (String data in rowData)
                 {
-                    air = data;
+                    Char delimiter = '|';
+                    substring = data.Split(delimiter);
                 }
             }
-            return air;
+            return substring;
 
         }
 
