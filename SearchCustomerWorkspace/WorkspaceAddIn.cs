@@ -23,6 +23,7 @@ namespace SearchCustomerWorkspace
         private IGlobalContext globalContext { get; set; }
         private IIncident Incident { get; set; }
         private int IncidentID { get; set; }
+        private int pay { get; set; }
 
         public Component(bool inDesignMode, IRecordContext recordContext, IGlobalContext globalContext)
         {
@@ -30,7 +31,7 @@ namespace SearchCustomerWorkspace
             {
                 this.recordContext = recordContext;
                 this.globalContext = globalContext;
-                
+
                 control = new SearchCustomer(inDesignMode, recordContext, globalContext);
                 if (!inDesignMode)
                 {
@@ -53,10 +54,16 @@ namespace SearchCustomerWorkspace
             {
                 if (Init())
                 {
+                    pay = 0;
                     Incident = (IIncident)recordContext.GetWorkspaceRecord(WorkspaceRecordType.Incident);
                     IncidentID = Incident.ID;
-                    UpdpatePayables();
-                    recordContext.RefreshWorkspace();
+                    pay = UpdpatePayables();
+                    if (pay > 0)
+                    {
+
+                        recordContext.RefreshWorkspace();
+                        MessageBox.Show("Refreshed");
+                    }
                 }
 
             }
@@ -67,10 +74,11 @@ namespace SearchCustomerWorkspace
             }
         }
 
-        private void UpdpatePayables()
+        private int UpdpatePayables()
         {
             try
             {
+                int i = 0;
                 ClientInfoHeader clientInfoHeader = new ClientInfoHeader();
                 APIAccessRequestHeader aPIAccessRequest = new APIAccessRequestHeader();
                 clientInfoHeader.AppID = "Query Example";
@@ -87,12 +95,15 @@ namespace SearchCustomerWorkspace
                         double amount = Convert.ToDouble(substrings[0]);
                         int service = Convert.ToInt32(substrings[1]);
                         UpdatePaxPrice(service, amount);
+                        i++;
                     }
                 }
+                return i;
             }
             catch (Exception ex)
             {
                 MessageBox.Show("UpdpatePayables" + ex.Message + " Det :" + ex.StackTrace);
+                return 0;
             }
         }
         public void UpdatePaxPrice(int id, double costo)
@@ -110,7 +121,7 @@ namespace SearchCustomerWorkspace
                     "\"Costo\":\"" + costo + "\"";
 
                 body += "}";
-                globalContext.LogMessage(body);
+                globalContext.LogMessage("Actualiza al guardar:" + body);
                 request.AddParameter("application/json", body, ParameterType.RequestBody);
                 // easily add HTTP Headers
                 request.AddHeader("Authorization", "Basic ZW9saXZhczpTaW5lcmd5KjIwMTg=");
@@ -202,7 +213,6 @@ namespace SearchCustomerWorkspace
             return substring;
 
         }
-
         public string RuleConditionInvoked(string conditionName)
         {
             throw new NotImplementedException();
