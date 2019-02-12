@@ -57,12 +57,12 @@ namespace SearchCustomerWorkspace
                     pay = 0;
                     Incident = (IIncident)recordContext.GetWorkspaceRecord(WorkspaceRecordType.Incident);
                     IncidentID = Incident.ID;
+                    UpdateCosts();
                     pay = UpdpatePayables();
                     if (pay > 0)
                     {
-
                         recordContext.RefreshWorkspace();
-                        MessageBox.Show("Refreshed");
+                        // MessageBox.Show("Refreshed");
                     }
                 }
 
@@ -104,6 +104,62 @@ namespace SearchCustomerWorkspace
             {
                 MessageBox.Show("UpdpatePayables" + ex.Message + " Det :" + ex.StackTrace);
                 return 0;
+            }
+        }
+
+        private void UpdateCosts()
+        {
+            try
+            {
+                ClientInfoHeader clientInfoHeader = new ClientInfoHeader();
+                APIAccessRequestHeader aPIAccessRequest = new APIAccessRequestHeader();
+                clientInfoHeader.AppID = "Query Example";
+                String queryString = "SELECT ID FROM CO.Services WHERE Incident =" + IncidentID;
+                globalContext.LogMessage(queryString);
+                clientRN.QueryCSV(clientInfoHeader, aPIAccessRequest, queryString, 10000, "|", false, false, out CSVTableSet queryCSV, out byte[] FileData);
+                foreach (CSVTable table in queryCSV.CSVTables)
+                {
+                    String[] rowData = table.Rows;
+                    foreach (String data in rowData)
+                    {
+                        if (!HasPayable(data))
+                        {
+                            UpdatePaxPrice(Convert.ToInt32(data), 0);
+                        }
+                    }
+
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("UpdateCosts" + ex.Message + " Det :" + ex.StackTrace);
+            }
+        }
+
+        public bool HasPayable(string Service)
+        {
+            try
+            {
+                bool has = false;
+                ClientInfoHeader clientInfoHeader = new ClientInfoHeader();
+                APIAccessRequestHeader aPIAccessRequest = new APIAccessRequestHeader();
+                clientInfoHeader.AppID = "Query Example";
+                String queryString = "SELECT COUNT(ID) FROM CO.Payables WHERE Services =" + Service;
+                clientRN.QueryCSV(clientInfoHeader, aPIAccessRequest, queryString, 1, "|", false, false, out CSVTableSet queryCSV, out byte[] FileData);
+                foreach (CSVTable table in queryCSV.CSVTables)
+                {
+                    String[] rowData = table.Rows;
+                    foreach (String data in rowData)
+                    {
+                        has = Convert.ToInt32(data) > 0 ? true : false;
+                    }
+                }
+                return has;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "Det" + ex.StackTrace);
+                return false;
             }
         }
         public void UpdatePaxPrice(int id, double costo)
