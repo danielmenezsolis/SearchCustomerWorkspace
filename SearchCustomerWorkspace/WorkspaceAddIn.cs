@@ -62,7 +62,7 @@ namespace SearchCustomerWorkspace
                     if (pay > 0)
                     {
                         recordContext.RefreshWorkspace();
-                        // MessageBox.Show("Refreshed");
+                        recordContext.ExecuteEditorCommand(EditorCommand.Refresh);
                     }
                 }
 
@@ -70,7 +70,6 @@ namespace SearchCustomerWorkspace
             catch (Exception ex)
             {
                 MessageBox.Show("RecordContext_Saving" + ex.Message + " Det :" + ex.StackTrace);
-
             }
         }
 
