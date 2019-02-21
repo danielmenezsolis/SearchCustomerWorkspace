@@ -270,7 +270,23 @@ namespace SearchCustomerWorkspace
                                "<typ1:value>" + txtRFC.Text + "</typ1:value>" +
                            "</typ1:item>";
                     }
-                    envelope = envelope + "</typ1:group>" +
+                    envelope = envelope + "<typ1:item>" + 
+                              "<typ1:conjunction>And</typ1:conjunction>" +
+                              "<typ1:upperCaseCompare>true</typ1:upperCaseCompare>" +
+                              "<typ1:attribute>PartyUsageAssignment</typ1:attribute>" +
+                              "<typ1:nested>" +
+                                  "<typ1:group>" +
+                                      "<typ1:item>" +
+                                          "<typ1:conjunction>And</typ1:conjunction>" +
+                                          "<typ1:upperCaseCompare>true</typ1:upperCaseCompare>" +
+                                          "<typ1:attribute>PartyUsageCode</typ1:attribute>" +
+                                          "<typ1:operator><![CDATA[<>]]></typ1:operator>" +
+                                          "<typ1:value>SUPPLIER</typ1:value>" +
+                                       "</typ1:item>" +
+                                   "</typ1:group>" +
+                              "</typ1:nested>" +
+                           "</typ1:item>" +
+                      "</typ1:group>" +
                 "</typ1:nested>" +
              "</typ1:item>" +
           "</typ1:group>";

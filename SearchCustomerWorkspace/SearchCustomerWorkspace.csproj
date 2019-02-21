@@ -35,11 +35,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="RestSharp, Version=106.5.4.0, Culture=neutral, PublicKeyToken=598062e77f915f75, processorArchitecture=MSIL">
-      <HintPath>..\packages\RestSharp.106.5.4\lib\net452\RestSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="RightNow.AddIns.AddInViews, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\AppData\Roaming\RightNow_Technologies\iccsmx\18.11.2305.274\AddInPipeline\AddInViews\RightNow.AddIns.AddInViews.dll</HintPath>
+      <HintPath>..\..\..\..\..\Desktop\RestSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="RightNow.AddIns.AddInViews">
+      <HintPath>..\..\..\..\..\AppData\Roaming\RightNow_Technologies\iccsmx\18.11.2309.274\AddInPipeline\AddInViews\RightNow.AddIns.AddInViews.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.AddIn">
