@@ -93,8 +93,11 @@ namespace SearchCustomerWorkspace
                         string[] substrings = data.Split(delimiter);
                         double amount = Convert.ToDouble(substrings[0]);
                         int service = Convert.ToInt32(substrings[1]);
-                        UpdatePaxPrice(service, amount);
-                        i++;
+                        if (amount != 0)
+                        {
+                            UpdatePaxPrice(service, amount);
+                            i++;
+                        }
                     }
                 }
                 return i;
@@ -115,7 +118,7 @@ namespace SearchCustomerWorkspace
                 clientInfoHeader.AppID = "Query Example";
                 String queryString = "SELECT ID FROM CO.Services WHERE Incident =" + IncidentID;
                 globalContext.LogMessage(queryString);
-                clientRN.QueryCSV(clientInfoHeader, aPIAccessRequest, queryString, 10000, "|", false, false, out CSVTableSet queryCSV, out byte[] FileData);
+                clientRN.QueryCSV(clientInfoHeader, aPIAccessRequest, queryString, 1000, "|", false, false, out CSVTableSet queryCSV, out byte[] FileData);
                 foreach (CSVTable table in queryCSV.CSVTables)
                 {
                     String[] rowData = table.Rows;
